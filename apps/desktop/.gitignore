@@ -1,0 +1,75 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node 依赖
+node_modules
+.pnpm-store
+
+# OS 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 编辑器配置
+.idea
+.vscode
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.sw?
+
+# ⚠️ Electron & Vite 构建产物 (非常重要)
+# 渲染进程构建输出
+dist
+# 主进程构建输出
+dist-electron
+# 打包后的安装包输出目录 (exe/dmg等)
+release
+# 资源目录 (如果有)
+resources
+
+# 本地环境变量 (包含敏感信息不提交)
+.env.local
+.env.*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# 其它
+*.local
