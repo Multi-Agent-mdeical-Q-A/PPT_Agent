@@ -27,3 +27,8 @@ pnpm install
 ```
 pnpm run dev
 ```
+5. 打包应用
+```
+$env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-builder-binaries/"
+pnpm run build
+```
