@@ -2,6 +2,7 @@ from fastapi import APIRouter, WebSocket
 import asyncio
 import json
 import uuid
+import base64
 
 from core.session import SessionState
 from utils.audio_stub import synthesize_wav_stub
@@ -43,20 +44,21 @@ async def ws_endpoint(ws: WebSocket):
 
         # v0.1：生成音频 bytes（以后替换成真实 TTS）
         wav_bytes = synthesize_wav_stub(assistant_text, seconds=1.0)
+        
+        # Base64 Encode
+        b64_data = base64.b64encode(wav_bytes).decode("utf-8")
 
-        # 先发一个 header，告诉前端接下来会收到二进制音频
+        # Send audio_chunk (Protocol v0.1.1)
         await safe_send_json(ws, {
-            "type": "audio_begin",
+            "type": "audio_chunk",
             "session_id": state.session_id,
             "turn_id": turn_id,
+            "chunk_seq": 0,
             "format": "wav",
-            "sample_rate": 16000
+            "sample_rate": 16000,
+            "data": b64_data
         })
 
-        # 直接发二进制（最简单）
-        await ws.send_bytes(wav_bytes)
-
-        await safe_send_json(ws, {"type": "audio_end", "session_id": state.session_id, "turn_id": turn_id})
         await safe_send_json(ws, {"type": "state_update", "session_id": state.session_id, "turn_id": turn_id, "state": "idle"})
 
     try:

@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import WebSocket from './components/websocket.vue'
+import MainLayout from './views/MainLayout.vue'
 </script>
 
 <template>
-  <div>
-    <WebSocket />
-  </div>
-
+  <MainLayout />
 </template>
 
-<style scoped>
-
+<style>
+/* Reset some default styles if needed */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+}
 </style>
