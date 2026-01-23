@@ -7,7 +7,7 @@
             // 👇 修改重点：使用 conda run 代替 activate && python
             // -n PPT: 指定环境
             // --no-capture-output: 让日志实时输出
-            "command": "conda run --no-capture-output -n PPT python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000",
+            "command": "conda run --no-capture-output -n PPT python -m uvicorn main:app --host 127.0.0.1 --port 8000",
             "options": {
                 "cwd": "${workspaceFolder}/services/backend",
                 "shell": {

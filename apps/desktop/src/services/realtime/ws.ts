@@ -18,6 +18,38 @@ export class WebSocketService {
 
     private constructor() { }
 
+    private _handleJson = (s: string) => {
+        try {
+            const msg = JSON.parse(s);
+            this.messageHandler?.(msg);
+        } catch (e) {
+            console.error("WS JSON parse error", e, s);
+        }
+    };
+
+    private _tryHandleBinary = (buf: ArrayBuffer): boolean => {
+        const u8 = new Uint8Array(buf);
+        if (u8.length < 12) return false;
+
+        // "AUD0" magic: 0x41 0x55 0x44 0x30
+        if (u8[0] === 0x41 && u8[1] === 0x55 && u8[2] === 0x44 && u8[3] === 0x30) {
+            const dv = new DataView(buf);
+            const turn_id = dv.getUint32(4, true);
+            const seq = dv.getUint32(8, true);
+            const payload = new Uint8Array(buf, 12);
+
+            // 交给上层：wsHandlers.ts 里新增 case "audio_chunk_bin"
+            this.messageHandler?.({
+                type: "audio_chunk_bin",
+                turn_id,
+                seq,
+                payload,
+            });
+            return true;
+        }
+        return false;
+    };
+
     public static getInstance(): WebSocketService {
         if (!WebSocketService.instance) {
             WebSocketService.instance = new WebSocketService();
@@ -48,6 +80,7 @@ export class WebSocketService {
 
         const mySeq = ++this.connSeq;
         const localWs = new WebSocket(targetUrl);
+        localWs.binaryType = "arraybuffer";
         this.ws = localWs;
 
         localWs.onopen = () => {
@@ -56,24 +89,49 @@ export class WebSocketService {
             this.openHandler?.();
         };
 
-        localWs.onmessage = (evt) => {
+        localWs.onmessage = async (evt) => {
             if (mySeq !== this.connSeq || this.ws !== localWs) return;
             if (!this.messageHandler) return;
-
-            // ✅ v0.1 协议：只接受 JSON 文本
-            if (typeof evt.data !== "string") {
-                console.warn("WS non-text message ignored (expected JSON string).", evt.data);
+            // ✅ 1) 正常文本 JSON
+            if (typeof evt.data === "string") {
+                this._handleJson(evt.data);
                 return;
             }
 
-            try {
-                const msg = JSON.parse(evt.data);
-                this.messageHandler(msg);
-            } catch (e) {
-                console.error("WS JSON parse error", e, evt.data);
-            }
-        };
+            // ✅ 2) ArrayBuffer：可能是 json-bytes，也可能是真二进制音频帧
+            if (evt.data instanceof ArrayBuffer) {
+                // 2.1 优先按二进制音频帧处理
+                if (this._tryHandleBinary(evt.data)) return;
 
+                // 2.2 fallback：当 UTF-8 JSON bytes 解码
+                try {
+                    const s = new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(evt.data));
+                    this._handleJson(s);
+                    return;
+                } catch {
+                    this.messageHandler?.({ type: "ws_binary", bytes: (evt.data as ArrayBuffer).byteLength });
+                    return;
+                }
+            }
+
+            // ✅ 3) Blob：读成 ArrayBuffer 再走同样逻辑
+            if (evt.data instanceof Blob) {
+                const buf = await evt.data.arrayBuffer();
+
+                if (this._tryHandleBinary(buf)) return;
+
+                try {
+                    const s = new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(buf));
+                    this._handleJson(s);
+                    return;
+                } catch {
+                    this.messageHandler?.({ type: "ws_binary", bytes: buf.byteLength });
+                    return;
+                }
+            }
+
+            console.warn("WS unknown message type", evt.data);
+        };
         localWs.onclose = () => {
             if (mySeq !== this.connSeq || this.ws !== localWs) return;
             console.log("WS close");

@@ -1,4 +1,5 @@
 // src/stores/agent/types.ts
+
 export type ConnectionStatus = "disconnected" | "connected" | "connecting" | "closed";
 export type BackendState = "idle" | "thinking" | "speaking" | "listening";
 
@@ -31,13 +32,18 @@ export interface AgentState {
     audioChunks: Uint8Array[];
     audioMimeType: string;
 
-    audioTurnId: number | null;
+    // seq for audio chunks
     audioSeqExpected: number;
 
+    // currently playing blob url (for <audio> path)
     currentAudioUrl: string | null;
 
     // lipsync
     mouthOpen: number; // 0..1
+
+    // audio mode flags
+    audioStreaming: boolean; // streaming active (MSE/PCM)
+    audioIsPcm: boolean; // current audio is pcm_s16le
 }
 
 export type WsCtx = {
@@ -46,19 +52,42 @@ export type WsCtx = {
     backendState: BackendState;
     sessionInfo: SessionInfo | null;
 
+    // text
     messages: ChatMessage[];
     debugLog: string[];
     assistantText: string;
 
+    // audio
+    audioStreaming: boolean;
+    audioIsPcm: boolean;
     audioChunks: Uint8Array[];
     audioMimeType: string;
-    audioTurnId: number | null;
     audioSeqExpected: number;
 
     // effects
     addDebug: (msg: string) => void;
-    stopAudio: (reason: string) => void;
     playBufferedAudio: () => void;
+    stopAudio: (reason: string) => void;
+
+    // MSE streaming hooks
+    startStream: (mime: string) => boolean;
+    appendStreamChunk: (chunk: Uint8Array) => void;
+    endStream: () => void;
+    cancelStream: () => void;
+
+    // PCM streaming hooks
+    startPcmStream: (sampleRate: number, channels: number) => boolean;
+    appendPcmChunk: (chunk: Uint8Array) => void;
+    endPcmStream: () => void;
+    cancelPcmStream: () => void;
+};
+
+export type AudioMetric = {
+    beginTs: number;
+    firstChunkTs?: number;
+    chunkCount: number;
+    totalBytes: number;
+    lastSeq?: number;
 };
 
 export type AudioCtx = {
@@ -69,7 +98,6 @@ export type AudioCtx = {
     audioMimeType: string;
     currentAudioUrl: string | null;
 
-    audioTurnId: number | null;
     audioSeqExpected: number;
 
     // side effects

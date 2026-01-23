@@ -9,10 +9,18 @@ import {
     playBufferedAudio as _playBufferedAudio,
     playAudio as _playAudio,
     stopAudio as _stopAudio,
+    startStream as _startStream,
+    appendStreamChunk as _appendStreamChunk,
+    endStream as _endStream,
+    cancelStream as _cancelStream,
+    // PCM
+    startPcmStream as _startPcmStream,
+    appendPcmChunk as _appendPcmChunk,
+    endPcmStream as _endPcmStream,
+    cancelPcmStream as _cancelPcmStream,
 } from "./audio";
 import { handleServerMessage as _handleServerMessage } from "./wsHandlers";
 
-// ✅ store 单例：模块级缓存 lip controller 就够了
 let _lipController: LipSyncController | null = null;
 
 function getLip(store: any): LipSyncController {
@@ -40,18 +48,16 @@ export const useAgentStore = defineStore("agent", {
         isPlaying: false,
         audioElement: null,
         audioChunks: [],
-        audioMimeType: "audio/wav",
-
-        audioTurnId: null,
+        audioMimeType: "audio/mpeg",
         audioSeqExpected: 0,
-
         currentAudioUrl: null,
 
         mouthOpen: 0,
+        audioStreaming: false,
+        audioIsPcm: false,
     }),
 
     getters: {
-        // ✅ 统一 UI 状态（Avatar / StatusBadge 共用）
         uiState(state): "idle" | "thinking" | "speaking" {
             if (state.isPlaying) return "speaking";
             if (state.backendState === "thinking") return "thinking";
@@ -87,8 +93,6 @@ export const useAgentStore = defineStore("agent", {
 
         reconnect() {
             const ws = WebSocketService.getInstance();
-
-            // ✅ 正在连接就不要重连（否则永远连不上）
             if (ws.isConnecting()) {
                 this.addDebug("WS is connecting... skip reconnect");
                 this.connectionStatus = "connecting";
@@ -120,9 +124,10 @@ export const useAgentStore = defineStore("agent", {
 
             this.stopAudio("new_turn");
             this.assistantText = "";
-            // ✅ 乐观 turn +1：和后端保持一致
+
             const nextTurnId = this.turnId + 1;
             this.turnId = nextTurnId;
+
             this.messages.push({
                 id: makeId("u"),
                 role: "user",
@@ -132,7 +137,7 @@ export const useAgentStore = defineStore("agent", {
             });
 
             this.backendState = "thinking";
-            this.addDebug(`send user_text (${text.slice(0, 30)})`);
+            this.addDebug(`send user_text (${text.slice(0, 30)}) turn=${this.turnId}`);
             ws.send({ type: "user_text", text });
         },
 
@@ -144,51 +149,108 @@ export const useAgentStore = defineStore("agent", {
             ws.send({ type: "interrupt" });
         },
 
-        // ✅ 用 WsCtx 适配对象（比 this as any 更稳）
         handleServerMessage(msg: Record<string, any>) {
             const thisStore = this;
 
             const wsCtx: WsCtx = {
-                get turnId() { return thisStore.turnId; },
-                set turnId(v: number) { thisStore.turnId = v; },
+                get turnId() {
+                    return thisStore.turnId;
+                },
+                set turnId(v: number) {
+                    thisStore.turnId = v;
+                },
 
-                get backendState() { return thisStore.backendState; },
-                set backendState(v) { thisStore.backendState = v; },
+                get backendState() {
+                    return thisStore.backendState;
+                },
+                set backendState(v) {
+                    thisStore.backendState = v;
+                },
 
-                get sessionInfo() { return thisStore.sessionInfo; },
-                set sessionInfo(v) { thisStore.sessionInfo = v; },
+                get sessionInfo() {
+                    return thisStore.sessionInfo;
+                },
+                set sessionInfo(v) {
+                    thisStore.sessionInfo = v;
+                },
 
-                get messages() { return thisStore.messages; },
-                set messages(v) { thisStore.messages = v; },
+                get messages() {
+                    return thisStore.messages;
+                },
+                set messages(v) {
+                    thisStore.messages = v;
+                },
 
-                get debugLog() { return thisStore.debugLog; },
-                set debugLog(v) { thisStore.debugLog = v; },
+                get debugLog() {
+                    return thisStore.debugLog;
+                },
+                set debugLog(v) {
+                    thisStore.debugLog = v;
+                },
 
-                get assistantText() { return thisStore.assistantText; },
-                set assistantText(v: string) { thisStore.assistantText = v; },
+                get assistantText() {
+                    return thisStore.assistantText;
+                },
+                set assistantText(v: string) {
+                    thisStore.assistantText = v;
+                },
 
-                get audioChunks() { return thisStore.audioChunks; },
-                set audioChunks(v: Uint8Array[]) { thisStore.audioChunks = v; },
+                get audioChunks() {
+                    return thisStore.audioChunks;
+                },
+                set audioChunks(v: Uint8Array[]) {
+                    thisStore.audioChunks = v;
+                },
 
-                get audioMimeType() { return thisStore.audioMimeType; },
-                set audioMimeType(v: string) { thisStore.audioMimeType = v; },
+                get audioMimeType() {
+                    return thisStore.audioMimeType;
+                },
+                set audioMimeType(v: string) {
+                    thisStore.audioMimeType = v;
+                },
 
-                get audioTurnId() { return thisStore.audioTurnId; },
-                set audioTurnId(v: number | null) { thisStore.audioTurnId = v; },
+                get audioSeqExpected() {
+                    return thisStore.audioSeqExpected;
+                },
+                set audioSeqExpected(v: number) {
+                    thisStore.audioSeqExpected = v;
+                },
 
-                get audioSeqExpected() { return thisStore.audioSeqExpected; },
-                set audioSeqExpected(v: number) { thisStore.audioSeqExpected = v; },
+                get audioStreaming() {
+                    return thisStore.audioStreaming;
+                },
+                set audioStreaming(v: boolean) {
+                    thisStore.audioStreaming = v;
+                },
+
+                get audioIsPcm() {
+                    return thisStore.audioIsPcm;
+                },
+                set audioIsPcm(v: boolean) {
+                    thisStore.audioIsPcm = v;
+                },
 
                 addDebug: (m) => thisStore.addDebug(m),
                 stopAudio: (r) => thisStore.stopAudio(r),
                 playBufferedAudio: () => thisStore.playBufferedAudio(),
+
+                // MSE hooks
+                startStream: (mime) => _startStream(thisStore._audioCtx(), getLip(thisStore), mime),
+                appendStreamChunk: (c) => _appendStreamChunk(thisStore._audioCtx(), c),
+                endStream: () => _endStream(thisStore._audioCtx()),
+                cancelStream: () => _cancelStream(thisStore._audioCtx()),
+
+                // PCM hooks
+                startPcmStream: (sr, ch) => _startPcmStream(thisStore._audioCtx(), getLip(thisStore), sr, ch),
+                appendPcmChunk: (c) => _appendPcmChunk(thisStore._audioCtx(), c),
+                endPcmStream: () => _endPcmStream(thisStore._audioCtx()),
+                cancelPcmStream: () => _cancelPcmStream(thisStore._audioCtx(), getLip(thisStore)),
             };
 
             _handleServerMessage(wsCtx, msg);
-        }
-        ,
+        },
 
-        // ---- audio wrappers（委托到模块）----
+        // ---- audio wrappers ----
         playBufferedAudio() {
             _playBufferedAudio(this._audioCtx(), getLip(this));
         },
@@ -201,7 +263,6 @@ export const useAgentStore = defineStore("agent", {
             _stopAudio(this._audioCtx(), getLip(this), reason);
         },
 
-        // ✅ 关键修复：AudioCtx 用 getter/setter，避免“快照 bug”
         _audioCtx(): AudioCtx {
             const store = this;
             return {
@@ -221,9 +282,6 @@ export const useAgentStore = defineStore("agent", {
                     return store.currentAudioUrl;
                 },
 
-                get audioTurnId() {
-                    return store.audioTurnId;
-                },
                 get audioSeqExpected() {
                     return store.audioSeqExpected;
                 },
@@ -235,8 +293,9 @@ export const useAgentStore = defineStore("agent", {
 
                 resetAudioBuffer: () => {
                     store.audioChunks = [];
-                    store.audioTurnId = null;
                     store.audioSeqExpected = 0;
+                    store.audioStreaming = false;
+                    store.audioIsPcm = false;
                 },
             };
         },

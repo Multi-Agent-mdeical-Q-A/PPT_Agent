@@ -1,10 +1,14 @@
-from typing import Protocol, Optional, List, Dict
+from typing import Protocol, Optional, List, Dict, AsyncIterator, runtime_checkable
 
+History = Optional[List[Dict[str, str]]]
+
+
+@runtime_checkable
 class LLMProvider(Protocol):
-    async def generate(self, prompt: str, history: Optional[List[Dict[str, str]]] = None, **kwargs) -> str:
+    async def generate(self, prompt: str, history: History = None, **kwargs) -> str:
         """
-        Generate a response for the given prompt and history.
-        Should return the complete response string (non-streaming for v0.1).
+        Non-streaming generation.
+        Returns the complete response string.
         Should support cancellation via asyncio.CancelledError.
         """
         ...

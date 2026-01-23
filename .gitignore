@@ -76,3 +76,4 @@ resources
 
 # 模型忽略
 /services/backend/models
+/services/backend/assets

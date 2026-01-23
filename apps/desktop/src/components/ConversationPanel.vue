@@ -1,26 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 import { useAgentStore } from "../stores/agent/index";
 
 const store = useAgentStore();
 
 const listRef = ref<HTMLDivElement | null>(null);
-
-// ✅ “引用效果”：assistant 消息顶部引用上一条 user 文本（按顺序，不强依赖 turnId）
-const renderItems = computed(() => {
-  let lastUserText: string | null = null;
-
-  return store.messages.map((m) => {
-    if (m.role === "user") {
-      lastUserText = m.text;
-      return { msg: m, quote: null as string | null };
-    }
-    if (m.role === "assistant") {
-      return { msg: m, quote: lastUserText };
-    }
-    return { msg: m, quote: null as string | null };
-  });
-});
 
 // ✅ 自动滚动到底部（每次新消息进来）
 watch(
@@ -40,23 +24,16 @@ watch(
       <div v-if="!store.messages.length" class="placeholder">
         <h3>Start a conversation</h3>
       </div>
-
       <div
-        v-for="item in renderItems"
-        :key="item.msg.id"
+        v-for="m in store.messages"
+        :key="m.id"
         class="message-bubble"
-        :class="item.msg.role"
+        :class="m.role"
       >
-        <div class="role-label">{{ item.msg.role }}</div>
-
-        <!-- 引用块：只在 assistant 消息上显示 -->
-        <div v-if="item.msg.role === 'assistant' && item.quote" class="quote-block">
-          <div class="quote-title">引用</div>
-          <div class="quote-text">{{ item.quote }}</div>
-        </div>
-
-        <div class="text">{{ item.msg.text }}</div>
+        <div class="role-label">{{ m.role }}</div>
+        <div class="text">{{ m.text }}</div>
       </div>
+
     </div>
 
     <div class="debug-toggle">
