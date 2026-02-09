@@ -1,5 +1,5 @@
 # services/backend/routers/ws.py
-import asyncio, json, uuid
+import asyncio, json, uuid, os
 from pathlib import Path
 from datetime import date
 import time
@@ -16,6 +16,7 @@ try:
 except Exception:
     PiperTTS = None  # type: ignore
 
+from services.llm.crag_agent_llm import CRAGAgentLLM
 from services.llm.hf_local import HFLocalLLM
 
 router = APIRouter()
@@ -132,8 +133,8 @@ def _pick_tts_by_sample(sample: str):
 # ------------------------
 # LLM
 # ------------------------
-llm = HFLocalLLM(model_dir=settings.LLM_MODEL_DIR)
-
+llm = CRAGAgentLLM(method=os.getenv("CRAG_AGENT_METHOD", "no_retrieval"))
+# llm = HFLocalLLM(model_dir=settings.LLM_MODEL_DIR)
 # ------------------------
 # Strong interrupt helper
 # ------------------------

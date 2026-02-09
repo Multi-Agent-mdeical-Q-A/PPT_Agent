@@ -1,0 +1,60 @@
+# ==========================================
+# Agentic CRAG 核心配置文件
+# ==========================================
+
+# 1. 任务名称 (popqa / pubqa / arc_challenge)
+# 这决定了 PromptBuilder 使用哪种模板
+task: "popqa"
+
+# 2. 路径配置
+paths:
+  # 原始数据集 (Questions)
+  input_file: "../CRAG-main/data/popqa/test_popqa.txt"
+  
+  # 预处理好的知识库 (Mock Retrieval) - 对应官方的 ref 目录
+  internal_ref: "../CRAG-main/data/popqa/ref/correct"
+  external_ref: "../CRAG-main/data/popqa/ref/incorrect"
+  combined_ref: "../CRAG-main/data/popqa/ref/ambiguous"
+  
+  # 输出结果保存路径
+  output_file: "../Agentic_RAG/data/popqa/output/agent_predictions.txt"
+
+# 3. 模型配置
+models:
+  # 生成器路径 (vLLM 加载用)
+  generator_path: "models/selfrag_llama2_7b"
+
+  # 生成器类型 (selfrag / llama)
+  generator_type: "selfrag" 
+
+  # 评估器路径 (T5 加载用)
+  evaluator_path: "../CRAG-main/models/retrieval_evaluator"
+
+# 4. 运行参数
+parameters:
+  # 运行模式: crag / rag / no_retrieval
+  method: "crag"
+  
+  # 硬件设备 (T5 使用)
+  device: "cuda:0"
+  
+  # 批处理大小 (vLLM 推理的并发数)
+  batch_size: 8
+  
+  # 检索文档数 (Loader 读取行数用)
+  ndocs: 10
+  
+  # 显存控制 (vLLM 上下文窗口限制)
+  # 建议设为 2048 或 4096，防止 PubQA 截断后溢出
+  max_model_len: 1800
+
+  # 防止 Prompt 过长导致显存溢出或超过模型限制,主要还是我显卡限制
+  context_max_len: 4200
+  # vLLM 显存占用比例 (0~1)
+  # 调低一点给 T5 留空间，防止 OOM
+  gpu_memory_utilization: 0.7
+  
+  # 阈值 (CRAG 路由逻辑)
+  # 注意：CRAG 官方代码通常对 lower 使用负数处理，这里直接写最终逻辑值
+  upper_threshold: 0.592
+  lower_threshold: -0.995

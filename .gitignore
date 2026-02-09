@@ -77,3 +77,20 @@ resources
 # 模型忽略
 /services/backend/models
 /services/backend/assets
+__pycache__/*
+
+
+# 忽略所有 __pycache__ 目录
+__pycache__/
+
+# 忽略编译后的 python 文件（以防万一它们出现在文件夹之外）
+*.py[cod]
+*$py.class
+
+# 忽略虚拟环境（通常命名为 venv 或 .venv）
+venv/
+.venv/
+env/
+
+# 忽略环境变量文件（包含敏感信息，绝不能提交！）
+.env
